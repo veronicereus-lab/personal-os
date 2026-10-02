@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<title>Personal OS</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icono-192.png">
+<link rel="apple-touch-icon" href="icono-192.png">
+<meta name="theme-color" content="#1D1418">
+<style>
+  :root{--ground:#FBEEF1;--card:#FFFAFB;--ink:#2E1F25;--soft:#7A6470;--line:#F0D5DC;--accent:#B04A6E;--bad:#A04840}
+  @media (prefers-color-scheme:dark){:root{color-scheme:dark;--ground:#1D1418;--card:#271C21;--ink:#F6E7EC;--soft:#BFA8B1;--line:#3E2C34;--accent:#C25A7C;--bad:#E08578}}
+  *{box-sizing:border-box} html,body{margin:0}
+  body{background:var(--ground);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh;display:grid;place-items:center;padding:16px}
+  .c{width:100%;max-width:380px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:1.4rem 1.3rem}
+  h1{font:600 1.5rem/1.15 Georgia,serif;margin:0 0 .3rem}
+  p{margin:0 0 1rem;color:var(--soft);font-size:.92rem}
+  input{display:block;width:100%;font:inherit;min-height:46px;padding:.6rem .8rem;margin:0 0 .6rem;border:1px solid var(--line);border-radius:12px;background:var(--ground);color:inherit}
+  input[type=file]{padding:.5rem}
+  button{width:100%;min-height:46px;border:0;border-radius:999px;font:600 1rem system-ui,sans-serif;background:var(--accent);color:#fff;cursor:pointer;margin-top:.2rem}
+  button.sec{background:none;color:var(--accent);border:1px solid var(--line);margin-top:.6rem}
+  button:disabled{opacity:.6}
+  .m{min-height:1.4em;margin:.7rem 0 0;color:var(--bad);font-size:.9rem}
+  .pulse{animation:p 1.4s ease-in-out infinite}@keyframes p{50%{opacity:.45}}
+  @media (prefers-reduced-motion:reduce){.pulse{animation:none}}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<div class="c" id="caja"><h1>Personal OS</h1><p class="pulse">Abriendo…</p></div>
+<script>
+/* =========================================================
+   PERSONAL OS · PUERTA DE ENTRADA
+   Esta página es pública (GitHub Pages) y no contiene nada tuyo.
+   El OS de verdad vive en el almacén PRIVADO de tu Supabase (bucket «app»),
+   que solo tu cuenta puede leer. Aquí solo se entra con tu cuenta, se descarga
+   el OS (o se usa la copia guardada en este dispositivo) y se abre.
+   ========================================================= */
+(function(){
+  "use strict";
+  if(window.self!==window.parent){document.documentElement.textContent="";return}   /* nunca dentro de otra web */
+  var SUPA_URL="https://mvmxnaitgvpxfximumhl.supabase.co";
+  var SUPA_KEY="sb_publishable_3SEkc2sI9cloNsbw69QegA_n2NR0LoI";
+  var BUCKET="app",OBJ="personal-os-app.html",CK="pos-app-v1",CKEY="./__app__/"+OBJ;
+  var caja=document.getElementById("caja"),sb=null;
+
+  function el(t,c,x){var e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e}
+  function pantalla(titulo,texto,pulso){caja.textContent="";caja.appendChild(el("h1",null,titulo));var p=el("p",pulso?"pulse":null,texto);caja.appendChild(p);return caja}
+  function aviso(c,txt){var m=c.querySelector(".m")||c.appendChild(el("p","m"));m.setAttribute("role","status");m.textContent=txt||""}
+  function conTiempo(p,ms){return Promise.race([p,new Promise(function(_,no){setTimeout(function(){no({code:"tiempo"})},ms)})])}
+
+  /* ---------- copia del OS en este dispositivo ---------- */
+  function leerCopia(){try{if(!window.caches)return Promise.resolve(null);
+    return caches.has(CK).then(function(h){return h?caches.open(CK).then(function(c){return c.match(CKEY)}):null}).then(function(r){return r?r.text().then(function(t){return {t:t,v:r.headers.get("x-pos-ver")||""}}):null}).catch(function(){return null})}catch(e){return Promise.resolve(null)}}
+  function guardarCopia(t,v){try{if(window.caches)caches.open(CK).then(function(c){return c.put(CKEY,new Response(t,{headers:{"content-type":"text/html; charset=utf-8","x-pos-ver":v}}))}).catch(function(){})}catch(e){}}
+
+  /* ---------- tu almacén privado ---------- */
+  function token(){return sb.auth.getSession().then(function(r){var s=r&&r.data&&r.data.session;return s&&s.access_token?s.access_token:null})}
+  function cab(t,extra){var h={Authorization:"Bearer "+t,apikey:SUPA_KEY};Object.keys(extra||{}).forEach(function(k){h[k]=extra[k]});return h}
+  function version(t){return fetch(SUPA_URL+"/storage/v1/object/list/"+BUCKET,{method:"POST",cache:"no-store",headers:cab(t,{"Content-Type":"application/json"}),body:JSON.stringify({prefix:"",limit:100,offset:0,search:OBJ})})
+    .then(function(r){if(!r.ok)throw {code:"almacen",status:r.status};return r.json()})
+    .then(function(L){var f=(Array.isArray(L)?L:[]).filter(function(x){return x&&x.name===OBJ})[0];if(!f)return null;
+      return String(f.updated_at||f.created_at||"")+"|"+String((f.metadata&&(f.metadata.eTag||f.metadata.size))||"")})}
+  function descargar(t){return fetch(SUPA_URL+"/storage/v1/object/authenticated/"+BUCKET+"/"+OBJ,{cache:"no-store",headers:cab(t)})
+    .then(function(r){if(!r.ok)throw {code:"almacen",status:r.status};return r.text()})
+    .then(function(x){if(!esOS(x))throw {code:"no_es_os"};return x})}
+  function esOS(x){return typeof x==="string"&&x.indexOf("window.OSNube")>0&&/<meta name="build" content="/.test(x)}
+  function esDuena(){return sb.rpc("os_es_duena",{}).then(function(r){return !r.error&&r.data===true},function(){return false})}
+  function subir(file){
+    if(!file)return Promise.reject({message:"Elige el archivo personal-os-app.html"});
+    if(file.size>20*1024*1024)return Promise.reject({message:"Ese archivo es demasiado grande para ser el OS."});
+    return file.text().then(function(x){if(!esOS(x))throw {message:"Ese archivo no es tu Personal OS (personal-os-app.html)."};
+      return token().then(function(t){if(!t)throw {message:"Vuelve a entrar con tu cuenta."};
+        return fetch(SUPA_URL+"/storage/v1/object/"+BUCKET+"/"+OBJ,{method:"POST",headers:cab(t,{"Content-Type":"text/html; charset=utf-8","x-upsert":"true","cache-control":"max-age=0"}),body:new Blob([x],{type:"text/html"})})
+          .then(function(r){if(!r.ok)return r.text().then(function(b){throw {message:r.status===403||r.status===401||/policy|security/i.test(b)?"Tu almacén no deja subir: ¿has ejecutado paso-almacen.sql y es tu cuenta?":"No se pudo subir ("+r.status+")."}});
+            return version(t).then(function(v){guardarCopia(x,v||"");return v})})})})}
+
+  /* ---------- abrir el OS ---------- */
+  function abrir(texto,ver){
+    window.__posApp={ver:ver||"",
+      hayNueva:function(){return token().then(function(t){return t?version(t):null}).then(function(v){return !!v&&v!==window.__posApp.ver})},
+      subir:subir,
+      olvidar:function(){try{return window.caches?caches.delete(CK):Promise.resolve()}catch(e){return Promise.resolve()}}};
+    setTimeout(function(){document.open();document.write(texto);document.close()},0)}
+
+  /* ---------- pantallas ---------- */
+  function entrar(msg){var c=pantalla("Personal OS","Entra con tu cuenta. Solo hace falta la primera vez en cada dispositivo.");
+    var f=el("form"),em=el("input"),pw=el("input"),bt=el("button",null,"Entrar");
+    em.type="email";em.autocomplete="username";em.placeholder="Correo";em.required=true;em.setAttribute("aria-label","Correo");
+    pw.type="password";pw.autocomplete="current-password";pw.placeholder="Contraseña";pw.required=true;pw.setAttribute("aria-label","Contraseña");bt.type="submit";
+    f.appendChild(em);f.appendChild(pw);f.appendChild(bt);c.appendChild(f);aviso(c,msg||"");
+    f.addEventListener("submit",function(ev){ev.preventDefault();bt.disabled=true;aviso(c,"");
+      sb.auth.signInWithPassword({email:em.value.trim(),password:pw.value}).then(function(r){
+        if(r.error){bt.disabled=false;aviso(c,/confirm/i.test(r.error.message)?"Falta confirmar este correo en Supabase.":"Correo o contraseña incorrectos.");return}
+        arrancar()},function(){bt.disabled=false;aviso(c,"Sin conexión. Prueba otra vez.")})});
+    setTimeout(function(){try{em.focus()}catch(e){}},50)}
+  function pedirSubida(){var c=pantalla("Falta instalar tu OS","Tu almacén privado aún no tiene el OS. Elige el archivo personal-os-app.html que te pasé y lo guardo ahí; solo tu cuenta podrá abrirlo.");
+    var fi=el("input");fi.type="file";fi.accept=".html,text/html";fi.setAttribute("aria-label","Archivo personal-os-app.html");c.appendChild(fi);
+    var bt=el("button",null,"Instalar");bt.type="button";c.appendChild(bt);aviso(c,"");
+    bt.addEventListener("click",function(){bt.disabled=true;aviso(c,"");bt.textContent="Subiendo…";
+      subir(fi.files&&fi.files[0]).then(function(){arrancar()},function(e){bt.disabled=false;bt.textContent="Instalar";aviso(c,(e&&e.message)||"No se pudo subir.")})})}
+  function error(texto,copia){var c=pantalla("Personal OS",texto);var r=el("button",null,"Reintentar");r.type="button";r.onclick=function(){location.reload()};c.appendChild(r);
+    if(copia){var o=el("button","sec","Abrir la copia de este dispositivo");o.type="button";o.onclick=function(){abrir(copia.t,copia.v)};c.appendChild(o)}}
+  function noDuena(){sb.auth.signOut().catch(function(){});entrar("Esta cuenta no tiene acceso a este Personal OS. Entra con la cuenta de la dueña.")}
+
+  /* ---------- arranque ---------- */
+  function arrancar(){pantalla("Personal OS","Abriendo…",true);
+    leerCopia().then(function(copia){
+      if(!window.supabase||!window.supabase.createClient){if(copia)abrir(copia.t,copia.v);else error("No puedo conectar ahora y este dispositivo aún no tiene el OS guardado.");return}
+      if(!sb)try{sb=window.supabase.createClient(SUPA_URL,SUPA_KEY,{auth:{persistSession:true,autoRefreshToken:false,detectSessionInUrl:false}})}catch(e){if(copia)abrir(copia.t,copia.v);else error("No puedo conectar ahora.");return}
+      conTiempo(token(),8000).then(function(t){
+        if(!t){if(copia)abrir(copia.t,copia.v);else entrar();return}
+        return conTiempo(version(t),8000).then(function(v){
+          if(v===null)return esDuena().then(function(ok){if(ok)pedirSubida();else noDuena()});
+          if(copia&&copia.v===v){abrir(copia.t,v);return}
+          return conTiempo(descargar(t),60000).then(function(x){guardarCopia(x,v);abrir(x,v)});
+        });
+      }).catch(function(e){
+        if(e&&e.status===403)return noDuena();
+        if(copia)abrir(copia.t,copia.v);
+        else error(e&&e.code==="no_es_os"?"El archivo de tu almacén no es el OS. Vuelve a subir personal-os-app.html.":"No puedo descargar tu OS ahora. Revisa la conexión.");
+      });
+    })}
+
+  try{if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(function(){})}catch(e){}
+  arrancar();
+})();
+</script>
+</body>
+</html>
